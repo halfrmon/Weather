@@ -53,5 +53,6 @@
         <file>res/type/BaoYuDaoDaBaoYu.png</file>
         <file>res/type/BaoYu.png</file>
         <file>res/type/BaoXue.png</file>
+        <file>citycode.json</file>
     </qresource>
 </RCC>

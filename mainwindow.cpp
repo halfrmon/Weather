@@ -10,6 +10,13 @@
 #include <QJsonObject>
 #include<QJsonDocument>
 #include<QJsonArray>
+#include"WeatherTool.h"
+#include<QPainter>
+
+#define INCREMENT 3//温度每升高或降低一度，y坐标的增量
+#define POINT_RADIUS 3//曲线秒点的大小
+#define TEXT_OFFSET_X 12
+#define TEXT_OFFSET_Y 12
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -87,8 +94,17 @@ MainWindow::MainWindow(QWidget *parent)
     mTypeMap.insert("中雪",":/res/type/ZhongXue.png");
 
 
-    getWeatherInfo("101280101");
+//    getWeatherInfo("101280101");
+    getWeatherInfo("重庆");
 
+    //给标签添加事件过滤器
+    ui->lblHighCurve->installEventFilter(this);
+    ui->lblLowCurve->installEventFilter(this);
+
+    for(int i = 0 ;i<6;i++)
+    {
+        qDebug()<<"低温"<<mDay[i].low;
+    }
 
 }
 
@@ -142,8 +158,14 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
 
 
 
-void MainWindow::getWeatherInfo(QString cityCode)//写一个请求的方法，不可能每个人都记得主citycode，因此还要采用键值对的形式，将城市与citycode进行对应，通过城市名去索引citycode，然后传到这个方法中
+void MainWindow::getWeatherInfo(QString cityname)//写一个请求的方法，不可能每个人都记得主citycode，因此还要采用键值对的形式，将城市与citycode进行对应，通过城市名去索引citycode，然后传到这个方法中
 {
+    QString cityCode = WeatherTool::getCityCode(cityname);
+    if(cityCode.isEmpty())
+    {
+        QMessageBox::warning(this,"天气","请检查输入是否正确",QMessageBox::Ok);
+        return;
+    }
     QUrl url("http://t.weather.itboy.net/api/weather/city/"+cityCode);
     mnetAccessManager->get(QNetworkRequest(url));
 }
@@ -175,6 +197,7 @@ void MainWindow::parseJson(QByteArray &byteArray)
     s=s.left(s.length()-1);
     mDay[0].high = s.toInt();
 
+
     s = objyesterday.value("low").toString().split(" ").at(1);
     s=s.left(s.length()-1);
     mDay[0].low = s.toInt();
@@ -203,6 +226,7 @@ void MainWindow::parseJson(QByteArray &byteArray)
         s = objForecast.value("low").toString().split(" ").at(1);
         s=s.left(s.length()-1);
         mDay[i+1].low = s.toInt();
+//        qDebug()<<"low"<<mDay[i+1].low;
         mDay[i+1].fl=objForecast.value("fx").toString();
         mDay[i+1].fx=objForecast.value("fx").toString();
 
@@ -227,6 +251,8 @@ void MainWindow::parseJson(QByteArray &byteArray)
     //在对所有的数据解析完之后通过定义的updateUI方法来更新界面
     updateUI();
 
+    ui->lblHighCurve->update();
+    ui->lblLowCurve->update();
 
 
 }
@@ -286,6 +312,173 @@ void MainWindow::updateUI()
         mFlList[i]->setText(mDay[i].fl);
 
     }
+
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if(watched == ui->lblHighCurve && event->type()==QEvent::Paint)
+    {
+        paintHighCurve();
+    }
+    if(watched == ui->lblLowCurve && event->type()==QEvent::Paint)
+    {
+        paintLowCurve();
+    }
+
+    return QWidget::eventFilter(watched,event);
+}
+
+void MainWindow::paintHighCurve()
+{
+    QPainter painter(ui->lblHighCurve);
+    painter.setRenderHint(QPainter::Antialiasing,true);
+    //抗锯齿
+
+    //1.获取x坐标
+    int pointx[6] = {0};
+    for(int i = 0 ;i<6 ; i++)
+    {
+        pointx[i]=mWeekList[i]->pos().x()+mWeekList[i]->width()/2;
+    }
+
+    //2.获取y坐标
+    int tempSum = 0;
+    int tempAverage = 0;
+    for(int i=0;i<6;i++)
+    {
+        tempSum +=mDay[i].high;
+//        qDebug()<<"test——low"<<mDay[i].high;
+    }
+    tempAverage = tempSum/6;
+    //计算y坐标
+    int pointy[6]={0};
+    int yCenter = ui->lblHighCurve->height()/2;
+    for(int i = 0;i<6;i++)
+    {
+        pointy[i] = yCenter-((mDay[i].high-tempAverage) * INCREMENT);
+    }
+
+
+    //3.开始绘制
+
+    //初始化画笔
+    QPen pen = painter.pen();
+    pen.setWidth(1);
+    pen.setColor(QColor(122,232,0));
+
+    painter.setPen(pen);
+    painter.setBrush(QColor(122,232,0));//设置内部填充
+
+    //画点写文本
+    for (int i = 0; i<6 ;i++)
+    {
+        //显示点
+        painter.drawEllipse(QPoint(pointx[i],pointy[i]),
+                            POINT_RADIUS,POINT_RADIUS);
+
+        //显示具体温度的文本
+
+        painter.drawText(pointx[i]-TEXT_OFFSET_X,pointy[i]-TEXT_OFFSET_Y,QString::number(mDay[i].high)+"*");
+
+
+    }
+    //绘制曲线
+    for(int i = 0; i<5; i++)
+    {
+        if(i==0)
+        {
+            pen.setStyle(Qt::DotLine);
+            painter.setPen(pen);
+        }
+        else{
+            pen.setStyle(Qt::SolidLine);
+            painter.setPen(pen);
+        }
+        painter.drawLine(pointx[i],pointy[i],pointx[i+1],pointy[i+1]);
+    }
+
+
+}
+
+void MainWindow::paintLowCurve()
+{
+    QPainter painter(ui->lblLowCurve);
+    painter.setRenderHint(QPainter::Antialiasing,true);
+    //抗锯齿
+
+    //1.获取x坐标
+    int pointx[6] = {0};
+    for(int i = 0 ;i<6 ; i++)
+    {
+        pointx[i]=mWeekList[i]->pos().x()+mWeekList[i]->width()/2;
+    }
+
+    //2.获取y坐标
+    int tempSum = 0;
+    int tempAverage = 0;
+    for(int i=0;i<6;i++)
+    {
+        tempSum +=mDay[i].low;
+//        qDebug()<<"test——low"<<mDay[i].low;
+    }
+    tempAverage = tempSum/6;
+    //计算y坐标
+    int pointy[6]={0};
+    int yCenter = ui->lblLowCurve->height()/2;
+    for(int i = 0;i<6;i++)
+    {
+        pointy[i] = yCenter-((mDay[i].low-tempAverage) * INCREMENT);
+    }
+
+
+    //3.开始绘制
+
+    //初始化画笔
+    QPen pen = painter.pen();
+    pen.setWidth(1);
+    pen.setColor(QColor(255,255,255));
+
+    painter.setPen(pen);
+    painter.setBrush(QColor(255,255,255));//设置内部填充
+
+    //画点写文本
+    for (int i = 0; i<6 ;i++)
+    {
+        //显示点
+        painter.drawEllipse(QPoint(pointx[i],pointy[i]),
+                            POINT_RADIUS,POINT_RADIUS);
+
+        //显示具体温度的文本
+
+        painter.drawText(pointx[i]-TEXT_OFFSET_X,pointy[i]-TEXT_OFFSET_Y,QString::number(mDay[i].low)+"^");
+
+
+    }
+    //绘制曲线
+    for(int i = 0; i<5; i++)
+    {
+        if(i==0)
+        {
+            pen.setStyle(Qt::DotLine);
+            painter.setPen(pen);
+        }
+        else{
+            pen.setStyle(Qt::SolidLine);
+            painter.setPen(pen);
+        }
+        painter.drawLine(pointx[i],pointy[i],pointx[i+1],pointy[i+1]);
+    }
+
+
+}
+
+
+
+void MainWindow::on_btnSearch_clicked()
+{
+    QString cityName = ui->leCity->text();
+    getWeatherInfo(cityName);
 
 }
 

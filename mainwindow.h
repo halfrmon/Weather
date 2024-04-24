@@ -9,6 +9,8 @@
 #include"weatherdata.h"
 #include<QList>
 #include<QLabel>
+#include<QObject>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -32,6 +34,14 @@ protected:
     void getWeatherInfo(QString cityCode);
     void parseJson(QByteArray &byteArray);
     void updateUI();
+
+    //重写父类的eventfileter方法
+    bool eventFilter(QObject*watched,QEvent*event);
+    void paintHighCurve();
+    void paintLowCurve();
+
+private slots:
+    void on_btnSearch_clicked();
 
 private:
     QMenu *mExitMenu;
