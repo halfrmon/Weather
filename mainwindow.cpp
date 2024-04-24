@@ -203,7 +203,7 @@ void MainWindow::parseJson(QByteArray &byteArray)
     mDay[0].low = s.toInt();
 
 
-    mDay[0].fl=objyesterday.value("fx").toString();
+    mDay[0].fl=objyesterday.value("fl").toString();
     mDay[0].fx=objyesterday.value("fx").toString();
 
     mDay[0].aqi=objyesterday.value("aqi").toDouble();
@@ -227,7 +227,7 @@ void MainWindow::parseJson(QByteArray &byteArray)
         s=s.left(s.length()-1);
         mDay[i+1].low = s.toInt();
 //        qDebug()<<"low"<<mDay[i+1].low;
-        mDay[i+1].fl=objForecast.value("fx").toString();
+        mDay[i+1].fl=objForecast.value("fl").toString();
         mDay[i+1].fx=objForecast.value("fx").toString();
 
         mDay[i+1].aqi=objForecast.value("aqi").toDouble();
